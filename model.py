@@ -130,30 +130,44 @@ class MLP:
             grad = layer.backward(grad, learning_rate)
 
 
-    def fit(self, X_train, y_train, epochs = 100, batch_size = 64, learning_rate = 0.01, rgen = 10):
-        # Сохраняем историю ошибки для построения графиков
+    def fit(self, X_train, y_train, epochs=100, batch_size=64, learning_rate=0.01, mu_max=0.99):
         history = []
         n_samples = X_train.shape[0]
+        
+        # Общий счетчик итераций (батчей)
+        global_step = 0 
 
         for epoch in range(epochs):
             indices = np.random.permutation(n_samples)
-
             epoch_loss = 0
         
-            # 3. Цикл по мини-батчам
             for i in range(0, X_train.shape[0], batch_size):
+                global_step += 1
+                
+                # Расписание импульса по Суцкеверу 
+                floor_val = np.floor(global_step / 250.0) + 1
+                log_val = np.log2(floor_val)
+                current_beta = 1.0 - (2.0 ** (-1.0 - log_val))
+                current_beta = min(current_beta, mu_max)
+
                 batch_idx = indices[i : i + batch_size]
                 X_batch = X_train[batch_idx]
                 y_batch = y_train[batch_idx]
                 
                 epoch_loss += self.forward(X_batch, y_batch)
-                self.backward(learning_rate)
                 
-            
-            # Считаем средний loss за эпоху и сохраняем
+                # Передаем динамический beta в backward
+                grad = self.loss_layer.backward()
+                for layer in reversed(self.layers):
+                    # Проверяем, является ли слой Dense, чтобы передать beta
+                    if isinstance(layer, Dense):
+                        grad = layer.backward(grad, learning_rate, beta=current_beta)
+                    else:
+                        grad = layer.backward(grad, learning_rate)
+                
             epoch_loss /= (X_train.shape[0] / batch_size)
             history.append(epoch_loss)
-            print(f"Эпоха {epoch + 1}/{epochs} - Loss: {epoch_loss:.4f}")
+            print(f"Эпоха {epoch + 1}/{epochs} - Loss: {epoch_loss:.4f} - Momentum: {current_beta:.4f}")
             
         return history
 
@@ -178,7 +192,7 @@ layers = [
 ]
 
 
-model = MLP(layers)
+'''model = MLP(layers)
 
 print(" обучение...")
 history = model.fit(X_train, y_train, epochs=100, batch_size=64, learning_rate=0.01)
@@ -366,3 +380,44 @@ def plot_mistakes(X_test_raw, y_true, y_pred):
 calculate_metrics(y_test_raw, predictions)
 
 plot_mistakes(X[len(X_train):], y_test_raw, predictions)
+'''
+EPOCHS = 50
+print("\n" + "="*50)
+print("ЭКСПЕРИМЕНТ 4: Влияние импульса Нестерова (NAG vs Plain SGD)")
+print("="*50)
+
+# Подготовка словаря для тестирования
+history_momentum = {}
+
+# 1. Тест БЕЗ Нестерова (Отключаем импульс, mu_max=0.0)
+print(f"\n---> Тест: Без импульса (Plain SGD)")
+layers_sgd = [Dense(input_size, 128), ReLU(), Dense(128, 10)]
+model_sgd = MLP(layers_sgd)
+history_momentum['Без импульса (Plain SGD)'] = model_sgd.fit(
+    X_train, y_train, epochs=EPOCHS, batch_size=16, learning_rate=0.01, mu_max=0.0
+)
+
+# 2. Тест С Нестеровым (Используем твое расписание, mu_max=0.99)
+print(f"\n---> Тест: С импульсом Нестерова (mu_max=0.99)")
+layers_nag = [Dense(input_size, 128), ReLU(), Dense(128, 10)]
+model_nag = MLP(layers_nag)
+history_momentum['Импульс Нестерова (NAG)'] = model_nag.fit(
+    X_train, y_train, epochs=EPOCHS, batch_size=16, learning_rate=0.1, mu_max=0.99
+)
+
+# График 4
+plt.figure(figsize=(10, 5))
+
+markers = ['o', '^']
+colors = ['gray', 'blue']
+
+for (m_type, hist), marker, color in zip(history_momentum.items(), markers, colors):
+    plt.plot(range(1, EPOCHS + 1), hist, marker=marker, color=color, label=m_type)
+    
+plt.title('Сравнение сходимости: Импульс Нестерова vs Базовый SGD')
+plt.xlabel('Эпоха')
+plt.ylabel('Loss (Cross-Entropy)')
+plt.yscale('log') # Логарифмическая шкала для наглядности отрыва
+plt.legend()
+plt.grid(True, which="both", ls="--", alpha=0.7)
+plt.show()

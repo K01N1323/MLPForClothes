@@ -25,3 +25,4 @@ run: install
 # Удалить виртуальное окружение
 clean:
 	rm -rf $(VENV)
+
