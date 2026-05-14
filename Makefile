@@ -4,7 +4,7 @@ VENV    := .venv
 PIP     := $(VENV)/bin/pip
 PY      := $(VENV)/bin/python
 
-.PHONY: all venv install run clean help
+.PHONY: all venv install test run clean help
 
 # По умолчанию просто подготавливаем окружение
 all: install
@@ -22,8 +22,13 @@ install: venv
 	@echo "==> Установка зависимостей..."
 	$(PIP) install -r requirements.txt
 
+# Запуск тестов
+test: install
+	@echo "==> Запуск тестов..."
+	$(PY) test_mlp.py
+
 # Запуск основного скрипта
-run: install
+run: test
 	@echo "==> Запуск проекта..."
 	$(PY) main.py
 
@@ -40,7 +45,8 @@ clean:
 help:
 	@echo "Использование:"
 	@echo "  make         - Создать venv и установить зависимости"
-	@echo "  make run     - Запустить main.py (с предварительной установкой)"
+	@echo "  make test    - Запустить модульные тесты"
+	@echo "  make run     - Запустить тесты и затем main.py"
 	@echo "  make clean   - Удалить venv и кэш Python"
 	@echo "  make help    - Показать это сообщение"
 

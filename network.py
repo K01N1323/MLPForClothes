@@ -26,7 +26,7 @@ class MLP:
         probs = self.predict_probs(X)
         return np.argmax(probs, axis=1)
 
-    def fit(self, X_train, y_train, epochs=100, batch_size=64, learning_rate=0.01, mu_max=0.99):
+    def fit(self, X_train, y_train, epochs=100, batch_size=64, learning_rate=0.01, mu_max=0.99, use_nesterov=False):
         history = []
         n_samples = X_train.shape[0]
         global_step = 0 
@@ -54,7 +54,7 @@ class MLP:
                 
                 for layer in reversed(self.layers):
                     if isinstance(layer, Dense):
-                        grad = layer.backward(grad, learning_rate, beta=current_beta)
+                        grad = layer.backward(grad, learning_rate, beta=current_beta, use_nesterov=use_nesterov)
                     else:
                         grad = layer.backward(grad, learning_rate)
                 

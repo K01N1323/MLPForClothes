@@ -10,10 +10,18 @@ class Layer:
         raise NotImplementedError
 
 class Dense(Layer):
-    def __init__(self, input_size, output_size):
+    def __init__(self, input_size, output_size, init_type='he'):
         super().__init__()
-        he_scale = np.sqrt(2.0 / input_size)
-        self.W = np.random.normal(loc=0.0, scale=he_scale, size=(input_size, output_size))
+        if init_type == 'he':
+            he_scale = np.sqrt(2.0 / input_size)
+            self.W = np.random.normal(loc=0.0, scale=he_scale, size=(input_size, output_size))
+        elif init_type == 'zero':
+            self.W = np.zeros((input_size, output_size))
+        elif init_type == 'large':
+            self.W = np.random.normal(loc=0.0, scale=10.0, size=(input_size, output_size))
+        else: # normal
+            self.W = np.random.normal(loc=0.0, scale=0.01, size=(input_size, output_size))
+            
         self.b = np.zeros((1, output_size))
         self.v_W = np.zeros_like(self.W)
         self.v_b = np.zeros_like(self.b)
@@ -22,17 +30,29 @@ class Dense(Layer):
         self.input = input_data
         return input_data @ self.W + self.b
 
-    def backward(self, output_gradient, learning_rate, beta=0.9, lambda_l2=0.001):
+    def backward(self, output_gradient, learning_rate, beta=0.9, lambda_l2=0.001, use_nesterov=False):
         self.dW = self.input.T @ output_gradient
         self.db = np.sum(output_gradient, axis=0, keepdims=True)
         
         self.dW += lambda_l2 * self.W
         
-        self.v_W = beta * self.v_W + (1 - beta) * self.dW
-        self.v_b = beta * self.v_b + (1 - beta) * self.db
+        if use_nesterov:
+            v_W_prev = self.v_W.copy()
+            v_b_prev = self.v_b.copy()
+            
+            # v = beta * v - lr * grad
+            self.v_W = beta * self.v_W - learning_rate * self.dW
+            self.v_b = beta * self.v_b - learning_rate * self.db
+            
+            # w = w - beta * v_prev + (1 + beta) * v
+            self.W += -beta * v_W_prev + (1 + beta) * self.v_W
+            self.b += -beta * v_b_prev + (1 + beta) * self.v_b
+        else:
+            self.v_W = beta * self.v_W + (1 - beta) * self.dW
+            self.v_b = beta * self.v_b + (1 - beta) * self.db
 
-        self.W -= learning_rate * self.v_W
-        self.b -= learning_rate * self.v_b
+            self.W -= learning_rate * self.v_W
+            self.b -= learning_rate * self.v_b
 
         return output_gradient @ self.W.T
 
