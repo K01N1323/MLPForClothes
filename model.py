@@ -8,7 +8,7 @@ fashion_mnist = fetch_openml('Fashion-MNIST', version=1, as_frame=False)
 # делим признаки и примеры
 X = fashion_mnist.data.astype('float32') 
 y = fashion_mnist.target.astype('int')
-# приводим к виду 0 0 0 1 0 0 ....
+# приводим к виду 0 0 0 1 0 0 
 def to_one_hot(y, num_classes = 10):
     oh = np.zeros((y.size, num_classes))
     oh[np.arange(y.size), y] = 1
@@ -192,7 +192,7 @@ layers = [
 ]
 
 
-'''model = MLP(layers)
+model = MLP(layers)
 
 print(" обучение...")
 history = model.fit(X_train, y_train, epochs=100, batch_size=64, learning_rate=0.01)
@@ -380,7 +380,7 @@ def plot_mistakes(X_test_raw, y_true, y_pred):
 calculate_metrics(y_test_raw, predictions)
 
 plot_mistakes(X[len(X_train):], y_test_raw, predictions)
-'''
+
 EPOCHS = 50
 print("\n" + "="*50)
 print("ЭКСПЕРИМЕНТ 4: Влияние импульса Нестерова (NAG vs Plain SGD)")
